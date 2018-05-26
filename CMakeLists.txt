@@ -1,0 +1,17 @@
+CMAKE_MINIMUM_REQUIRED(VERSION 3.10)
+PROJECT(RuleConverter)
+
+SET(CMAKE_CXX_STANDARD 17)
+
+SET(SOURCE_FILES
+	main.cpp
+	Symbol/Symbol.cpp
+	Symbol/Symbol.h)
+
+ADD_EXECUTABLE(RuleConverter ${SOURCE_FILES})
+
+IF (NOT TARGET InputLibrary)
+	ADD_SUBDIRECTORY(InputLibrary)
+ENDIF ()
+
+TARGET_LINK_LIBRARIES(RuleConverter InputLibrary)

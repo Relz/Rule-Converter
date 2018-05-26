@@ -1,0 +1,3 @@
+[submodule "InputLibrary"]
+	path = InputLibrary
+	url = https://github.com/Relz/Input-Library
