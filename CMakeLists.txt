@@ -6,7 +6,9 @@ SET(CMAKE_CXX_STANDARD 17)
 SET(SOURCE_FILES
 	main.cpp
 	Symbol/Symbol.cpp
-	Symbol/Symbol.h)
+	Symbol/Symbol.h
+	Node/Node.cpp
+	Node/Node.h NonterminalHelper/NonterminalHelper.cpp NonterminalHelper/NonterminalHelper.h)
 
 ADD_EXECUTABLE(RuleConverter ${SOURCE_FILES})
 
@@ -14,4 +16,8 @@ IF (NOT TARGET InputLibrary)
 	ADD_SUBDIRECTORY(InputLibrary)
 ENDIF ()
 
-TARGET_LINK_LIBRARIES(RuleConverter InputLibrary)
+IF (NOT TARGET TokenLibrary)
+	ADD_SUBDIRECTORY(TokenLibrary)
+ENDIF ()
+
+TARGET_LINK_LIBRARIES(RuleConverter InputLibrary TokenLibrary)

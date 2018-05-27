@@ -1,3 +1,6 @@
 [submodule "InputLibrary"]
 	path = InputLibrary
 	url = https://github.com/Relz/Input-Library
+[submodule "TokenLibrary"]
+	path = TokenLibrary
+	url = https://github.com/Relz/Token-Library
