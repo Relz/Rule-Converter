@@ -6,6 +6,7 @@
 #include "Symbol/Symbol.h"
 #include "Node/Node.h"
 #include "NonterminalHelper/NonterminalHelper.h"
+#include "RuleRightSide/RuleRightSide.h"
 
 int const REQUIRED_ARGC = 1;
 std::string const NO_ARGUMENT_ERROR = "Error: file with rules is not specified";
@@ -86,106 +87,121 @@ void ReadRule(
 	std::string const & inputFileName,
 	std::string & mainNonterminal,
 	bool & needAugment,
-	std::unordered_map<std::string, std::vector<std::vector<Symbol>>> & nonterminalSequences)
+	std::unordered_map<std::string, std::vector<RuleRightSide>> & rules
+)
 {
-	Input input(inputFileName);
-	while (!input.IsEndOfStream())
+	Input inputFile(inputFileName);
+	while (!inputFile.IsEndOfStream())
 	{
 		std::string nonterminal;
-		ParseNonterminalDeclaration(input, nonterminal);
+		ParseNonterminalDeclaration(inputFile, nonterminal);
 
 		if (mainNonterminal.empty())
 		{
 			mainNonterminal = nonterminal;
 		}
 
-		nonterminalSequences.try_emplace(nonterminal, std::vector<std::vector<Symbol>>());
-		nonterminalSequences.at(nonterminal).emplace_back(std::vector<Symbol>());
+		rules.try_emplace(nonterminal, std::vector<RuleRightSide>());
+		rules.at(nonterminal).emplace_back(RuleRightSide());
 
-		ReadNonterminalSequence(input, nonterminalSequences.at(nonterminal).back(), mainNonterminal, needAugment);
+		ReadNonterminalSequence(inputFile, rules.at(nonterminal).back().sequence, mainNonterminal, needAugment);
 
-		input.SkipLine();
+		inputFile.SkipLine();
 	}
 }
 
-void AugmentRule(
-	std::unordered_map<std::string, std::vector<std::vector<Symbol>>> & nonterminalSequences, std::string & mainNonterminal)
+void AugmentRule(std::unordered_map<std::string, std::vector<RuleRightSide>> & rules, std::string & mainNonterminal)
 {
-	nonterminalSequences.try_emplace(AUGMENT_NONTERMINAL, std::vector<std::vector<Symbol>>());
-	nonterminalSequences.at(AUGMENT_NONTERMINAL).emplace_back(std::vector<Symbol>());
+	rules.try_emplace(AUGMENT_NONTERMINAL, std::vector<RuleRightSide>(1, RuleRightSide()));
 	Symbol nonterminal;
 	Symbol::CreateNonterminal(mainNonterminal, nonterminal);
-	nonterminalSequences.at(AUGMENT_NONTERMINAL).back().emplace_back(nonterminal);
+	rules.at(AUGMENT_NONTERMINAL).front().sequence.emplace_back(nonterminal);
 	mainNonterminal = AUGMENT_NONTERMINAL;
 }
 
-void AddEndOfFileToken(std::vector<std::vector<Symbol>> & mainNonterminalSequences)
+void AddEndOfFileToken(std::vector<RuleRightSide> & mainRule)
 {
-	for (std::vector<Symbol> & mainNonterminalSequence : mainNonterminalSequences)
+	for (RuleRightSide & mainRuleRightSide : mainRule)
 	{
 		Symbol terminal;
 		Symbol::CreateTerminal(TokenExtensions::ToString(Token::END_OF_FILE), terminal);
-		mainNonterminalSequence.emplace_back(terminal);
+		mainRuleRightSide.sequence.emplace_back(terminal);
 	}
 }
 
-void RemoveLeftRecursion(std::unordered_map<std::string, std::vector<std::vector<Symbol>>> & nonterminalSequences)
+bool DoesNeedToResolveLeftRecursion(std::string const & nonterminal, std::vector<RuleRightSide> const & rightSides)
 {
-	for (auto & nonterminalSequence : nonterminalSequences)
+	return std::find_if(rightSides.begin(), rightSides.end(), [&nonterminal](RuleRightSide const & rightSide) {
+		return rightSide.sequence.front().IsValueEquals(nonterminal);
+	}) != rightSides.end();
+}
+
+void RemoveLeftRecursion(std::unordered_map<std::string, std::vector<RuleRightSide>> & rules)
+{
+	for (auto & rule : rules)
 	{
-		std::string const & nonterminal = nonterminalSequence.first;
-		std::vector<std::vector<Symbol>> & sequences = nonterminalSequence.second;
+		std::string const & nonterminal = rule.first;
+		std::vector<RuleRightSide> & rightSides = rule.second;
 
-		sequences.erase(std::remove_if(sequences.begin(), sequences.end(), [nonterminal](std::vector<Symbol> const & sequence){
-			return sequence.front().IsValueEquals(nonterminal) && sequence.size() == 1;
-		}), sequences.end());
+		rightSides.erase(
+			std::remove_if(rightSides.begin(), rightSides.end(), [nonterminal](RuleRightSide const & rightSide) {
+				return rightSide.sequence.front().IsValueEquals(nonterminal) && rightSide.sequence.size() == 1;
+			}),
+			rightSides.end()
+		);
 
-		for (std::vector<Symbol> const & sequence : sequences)
+		if (DoesNeedToResolveLeftRecursion(nonterminal, rightSides))
 		{
-			if (!sequence.front().IsValueEquals(nonterminal))
-			{
-				continue;
-			}
 			std::string newNonterminalName;
 			NonterminalHelper::GenerateNonterminalName(
 				newNonterminalName,
-				[&nonterminalSequences](std::string const & possibleNonterminalName) {
-					return nonterminalSequences.find(possibleNonterminalName) == nonterminalSequences.end();
+				[&rules](std::string const & possibleNonterminalName)
+				{
+					return rules.find(possibleNonterminalName) == rules.end();
 				}
 			);
-			for (std::vector<Symbol> & sequence : sequences)
+			for (auto it = rightSides.begin(); it != rightSides.end();)
 			{
+				RuleRightSide & rightSide = *it;
+				if (rightSide.sequence.front() == EMPTY_CHARACTER_SYMBOL)
+				{
+					continue;
+				}
 				Symbol newNonterminal;
 				Symbol::CreateNonterminal(newNonterminalName, newNonterminal);
-				sequence.emplace_back(newNonterminal);
+				rightSide.sequence.emplace_back(newNonterminal);
 
-				if (sequence.front().IsValueEquals(nonterminal))
+				if (rightSide.sequence.front().IsValueEquals(nonterminal))
 				{
-					sequence.erase(sequence.begin());
-					nonterminalSequences.emplace(
-						newNonterminalName,
-						std::vector<std::vector<Symbol>>(1, { EMPTY_CHARACTER_SYMBOL })
-					);
+					rightSide.sequence.erase(rightSide.sequence.begin());
+					rules[newNonterminalName].emplace_back(rightSide);
+					rightSides.erase(it);
+				}
+				else
+				{
+					++it;
 				}
 			}
+			rules[newNonterminalName].emplace_back(RuleRightSide());
+			rules[newNonterminalName].back().sequence.emplace_back(EMPTY_CHARACTER_SYMBOL);
 		}
 	}
 }
 
 void ResolveNode(
 	Node * node,
-	std::unordered_map<std::string, std::vector<std::vector<Symbol>>> & nonterminalSequences,
+	std::unordered_map<std::string, std::vector<RuleRightSide>> & rules,
 	std::string const & nonterminal
 )
 {
-	std::vector<std::vector<Symbol>> & sequences = nonterminalSequences[nonterminal];
-	sequences.emplace_back(std::vector<Symbol>());
+	std::vector<RuleRightSide> & rightSides = rules[nonterminal];
+	rightSides.emplace_back(RuleRightSide());
 	while (node->nextNodes.size() == 1)
 	{
-		sequences.back().emplace_back(node->symbol);
+		rightSides.back().sequence.emplace_back(node->symbol);
 		node = node->nextNodes.begin()->second;
 	}
-	sequences.back().emplace_back(node->symbol);
+	rightSides.back().sequence.emplace_back(node->symbol);
 	if (node->nextNodes.empty())
 	{
 		return;
@@ -193,31 +209,31 @@ void ResolveNode(
 	std::string newNonterminalName;
 	NonterminalHelper::GenerateNonterminalName(
 		newNonterminalName,
-		[&nonterminalSequences](std::string const & possibleNonterminalName)
+		[&rules](std::string const & possibleNonterminalName)
 		{
-			return nonterminalSequences.find(possibleNonterminalName) == nonterminalSequences.end();
+			return rules.find(possibleNonterminalName) == rules.end();
 		}
 	);
 	Symbol newNonterminal;
 	Symbol::CreateNonterminal(newNonterminalName, newNonterminal);
-	sequences.back().emplace_back(newNonterminal);
+	rightSides.back().sequence.emplace_back(newNonterminal);
 	for (auto const & symbolNextNodes : node->nextNodes)
 	{
-		ResolveNode(symbolNextNodes.second, nonterminalSequences, newNonterminalName);
+		ResolveNode(symbolNextNodes.second, rules, newNonterminalName);
 	}
 }
 
-void Factorize(std::unordered_map<std::string, std::vector<std::vector<Symbol>>> & nonterminalSequences)
+void Factorize(std::unordered_map<std::string, std::vector<RuleRightSide>> & rules)
 {
-	for (auto & nonterminalSequence : nonterminalSequences)
+	for (auto & rule : rules)
 	{
-		std::string const & nonterminal = nonterminalSequence.first;
-		std::vector<std::vector<Symbol>> & sequences = nonterminalSequence.second;
+		std::string const & nonterminal = rule.first;
+		std::vector<RuleRightSide> & rightSides = rule.second;
 
 		std::unordered_map<Symbol, Node*> treesRoots { };
-		for (size_t ruleIndex = 0; ruleIndex < sequences.size(); ++ruleIndex)
+		for (RuleRightSide const & rightSide : rightSides)
 		{
-			std::vector<Symbol> const & sequence = sequences.at(ruleIndex);
+			std::vector<Symbol> const & sequence = rightSide.sequence;
 			Node * prevNode = nullptr;
 			for (size_t symbolIndex = 0; symbolIndex < sequence.size(); ++symbolIndex)
 			{
@@ -248,11 +264,155 @@ void Factorize(std::unordered_map<std::string, std::vector<std::vector<Symbol>>>
 				prevNode = node;
 			}
 		}
-		sequences.clear();
+		rightSides.clear();
 		for (auto const & treesRoot : treesRoots)
 		{
 			Node * node = treesRoot.second;
-			ResolveNode(node, nonterminalSequences, nonterminal);
+			ResolveNode(node, rules, nonterminal);
+		}
+	}
+}
+
+void ComputeReferencingSet(
+		std::unordered_map<std::string, std::vector<RuleRightSide>> & rules,
+		std::string const & nonterminal,
+		RuleRightSide & rightSide
+);
+
+void ComputeNextTerminals(
+	std::unordered_map<std::string, std::vector<RuleRightSide>> & rules,
+	std::string const & nonterminalToFind,
+	std::unordered_set<std::string> & nextTerminals
+)
+{
+	static std::unordered_map<std::string, std::unordered_set<size_t>> blacklist;
+	for (auto & rule : rules)
+	{
+		std::string const & nonterminal = rule.first;
+		std::vector<RuleRightSide> & rightSides = rule.second;
+
+		for (RuleRightSide const & rightSide : rightSides)
+		{
+			for (size_t i = 0; i < rightSide.sequence.size(); ++i)
+			{
+				Symbol const & symbol = rightSide.sequence[i];
+				if (!symbol.IsValueEquals(nonterminalToFind))
+				{
+					continue;
+				}
+				if (i == rightSide.sequence.size() - 1)
+				{
+					if (blacklist.find(nonterminal) == blacklist.end())
+					{
+						blacklist.emplace(nonterminal, std::unordered_set<size_t>());
+					}
+					if (blacklist[nonterminal].find(i) == blacklist[nonterminal].end())
+					{
+						blacklist[nonterminal].emplace(i);
+						ComputeNextTerminals(rules, nonterminal, nextTerminals);
+					}
+				}
+				else
+				{
+					Symbol nextSymbol = rightSide.sequence[i + 1];
+					if (nextSymbol.IsTerminal())
+					{
+						nextTerminals.emplace(nextSymbol.GetValue());
+					}
+					else
+					{
+						std::string const & nextNonterminalValue = nextSymbol.GetValue();
+						std::vector<RuleRightSide> & nextNonterminalRightSides = rules.at(nextNonterminalValue);
+						for (RuleRightSide & rightSide : nextNonterminalRightSides)
+						{
+							if (rightSide.referencingSet.empty())
+							{
+								ComputeReferencingSet(rules, nextNonterminalValue, rightSide);
+							}
+							nextTerminals.insert(
+								rightSide.referencingSet.begin(),
+								rightSide.referencingSet.end()
+							);
+						}
+					}
+				}
+			}
+		}
+	}
+}
+
+void ComputeReferencingSet(
+	std::unordered_map<std::string, std::vector<RuleRightSide>> & rules,
+	std::string const & nonterminal,
+	RuleRightSide & rightSide
+)
+{
+	Symbol firstSymbol = rightSide.sequence.front();
+	if (firstSymbol.IsTerminal())
+	{
+		if (rightSide.referencingSet.empty())
+		{
+			rightSide.referencingSet.emplace(std::move(firstSymbol.GetValue()));
+		}
+	}
+	else if (firstSymbol == EMPTY_CHARACTER_SYMBOL)
+	{
+		ComputeNextTerminals(
+			rules,
+			nonterminal,
+			rightSide.referencingSet
+		);
+	}
+	else
+	{
+		std::string const & nonterminal = firstSymbol.GetValue();
+		std::vector<RuleRightSide> & rightSides = rules.at(nonterminal);
+		for (RuleRightSide & nonterminalRightSide : rightSides)
+		{
+			if (nonterminalRightSide.referencingSet.empty())
+			{
+				ComputeReferencingSet(rules, nonterminal, nonterminalRightSide);
+			}
+			rightSide.referencingSet.insert(
+				nonterminalRightSide.referencingSet.begin(),
+				nonterminalRightSide.referencingSet.end()
+			);
+		}
+	}
+}
+
+void ComputeReferencingSets(std::unordered_map<std::string, std::vector<RuleRightSide>> & rules)
+{
+	for (auto & rule : rules)
+	{
+		std::string const & nonterminal = rule.first;
+		std::vector<RuleRightSide> & rightSides = rule.second;
+		for (
+			RuleRightSide & rightSide : rightSides
+				)
+		{
+			if (rightSide.referencingSet.empty())
+			{
+				ComputeReferencingSet(rules, nonterminal, rightSide);
+			}
+		}
+	}
+}
+
+void WriteRule(std::string const & outputFileName, std::unordered_map<std::string, std::vector<RuleRightSide>> & rules)
+{
+	std::ofstream outputFile(outputFileName);
+	for (auto const & rule : rules)
+	{
+		std::string const & nonterminal = rule.first;
+		std::vector<RuleRightSide> const & rightSides = rule.second;
+		for (RuleRightSide const & rightSide : rightSides)
+		{
+			outputFile << nonterminal << "-";
+			std::copy(rightSide.sequence.begin(), rightSide.sequence.end(), std::ostream_iterator<Symbol>(outputFile));
+			outputFile << "/";
+			std::copy(rightSide.referencingSet.begin(), rightSide.referencingSet.end(), std::ostream_iterator<std::string>(outputFile, ","));
+			outputFile << "\n";
 		}
 	}
 }
@@ -265,30 +425,23 @@ int main(int argc, char * argv[])
 		return EXIT_FAILURE;
 	}
 
+	std::string inputFileName = argv[1];
 	std::string mainNonterminal;
 	bool needAugment = false;
-	std::unordered_map<std::string, std::vector<std::vector<Symbol>>> nonterminalSequences;
+	std::unordered_map<std::string, std::vector<RuleRightSide>> rules;
 
-	ReadRule(argv[1], mainNonterminal, needAugment, nonterminalSequences);
+	ReadRule(argv[1], mainNonterminal, needAugment, rules);
 
 	if (needAugment)
 	{
-		AugmentRule(nonterminalSequences, mainNonterminal);
+		AugmentRule(rules, mainNonterminal);
 	}
-	AddEndOfFileToken(nonterminalSequences.at(mainNonterminal));
-	RemoveLeftRecursion(nonterminalSequences);
-	Factorize(nonterminalSequences);
+	AddEndOfFileToken(rules.at(mainNonterminal));
+	RemoveLeftRecursion(rules);
+	Factorize(rules);
+	ComputeReferencingSets(rules);
 
-	for (auto const & nonterminalSequence : nonterminalSequences)
-	{
-		std::string const & nonterminal = nonterminalSequence.first;
-		for (std::vector<Symbol> const & sequence : nonterminalSequence.second)
-		{
-			std::cout << nonterminal << "-";
-			std::copy(sequence.begin(), sequence.end(), std::ostream_iterator<Symbol>(std::cout));
-			std::cout << "\n";
-		}
-	}
+	WriteRule(inputFileName + ".precompiled", rules);
 
 	return EXIT_SUCCESS;
 }

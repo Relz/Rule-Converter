@@ -8,7 +8,11 @@ SET(SOURCE_FILES
 	Symbol/Symbol.cpp
 	Symbol/Symbol.h
 	Node/Node.cpp
-	Node/Node.h NonterminalHelper/NonterminalHelper.cpp NonterminalHelper/NonterminalHelper.h)
+	Node/Node.h
+	NonterminalHelper/NonterminalHelper.cpp
+	NonterminalHelper/NonterminalHelper.h
+	RuleRightSide/RuleRightSide.cpp
+	RuleRightSide/RuleRightSide.h)
 
 ADD_EXECUTABLE(RuleConverter ${SOURCE_FILES})
 
