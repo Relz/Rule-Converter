@@ -83,13 +83,14 @@ void ReadNonterminalSequence(
 	}
 }
 
-void ReadRule(
+void ReadRules(
 	std::string const & inputFileName,
 	std::string & mainNonterminal,
 	bool & needAugment,
 	std::unordered_map<std::string, std::vector<RuleRightSide>> & rules
 )
 {
+	mainNonterminal.clear();
 	Input inputFile(inputFileName);
 	while (!inputFile.IsEndOfStream())
 	{
@@ -106,7 +107,17 @@ void ReadRule(
 
 		ReadNonterminalSequence(inputFile, rules.at(nonterminal).back().sequence, mainNonterminal, needAugment);
 
-		inputFile.SkipLine();
+		if (!inputFile.IsEndOfLine())
+		{
+			std::cerr << "Warning: "
+				<< "Nonterminal sequence reading ended at position ("
+				<< inputFile.GetPosition().GetLine() << ", " << inputFile.GetPosition().GetColumn()
+				<< "), but line wasn't ended" << "\n";
+		}
+		while (inputFile.IsEndOfLine())
+		{
+			inputFile.SkipLine();
+		}
 	}
 }
 
@@ -271,6 +282,11 @@ void Factorize(std::unordered_map<std::string, std::vector<RuleRightSide>> & rul
 			ResolveNode(node, rules, nonterminal);
 		}
 	}
+	for (auto & rule : rules)
+	{
+		std::vector<RuleRightSide> & ruleRightSides = rule.second;
+		std::reverse(ruleRightSides.begin(), ruleRightSides.end());
+	}
 }
 
 void ComputeReferencingSet(
@@ -399,20 +415,48 @@ void ComputeReferencingSets(std::unordered_map<std::string, std::vector<RuleRigh
 	}
 }
 
-void WriteRule(std::string const & outputFileName, std::unordered_map<std::string, std::vector<RuleRightSide>> & rules)
+void WriteRule(
+	std::ofstream & outputFile,
+	std::string const & nonterminal,
+	std::vector<RuleRightSide> const & rightSides
+)
+{
+	for (RuleRightSide const & rightSide : rightSides)
+	{
+		outputFile << nonterminal << "-";
+		std::copy(rightSide.sequence.begin(), rightSide.sequence.end(), std::ostream_iterator<Symbol>(outputFile));
+		outputFile << "/";
+		size_t i = 0;
+		for (std::string const & referencingSetElement : rightSide.referencingSet)
+		{
+			outputFile << referencingSetElement;
+			++i;
+			if (i != rightSide.referencingSet.size())
+			{
+				outputFile << ",";
+			}
+		}
+		outputFile << "\n";
+	}
+}
+
+void WriteRules(
+	std::string const & outputFileName,
+	std::unordered_map<std::string,
+	std::vector<RuleRightSide>> & rules,
+	std::string const & mainNonterminal
+)
 {
 	std::ofstream outputFile(outputFileName);
+	std::vector<RuleRightSide> const & mainRuleRightSides = rules[mainNonterminal];
+	WriteRule(outputFile, mainNonterminal, mainRuleRightSides);
 	for (auto const & rule : rules)
 	{
 		std::string const & nonterminal = rule.first;
-		std::vector<RuleRightSide> const & rightSides = rule.second;
-		for (RuleRightSide const & rightSide : rightSides)
+		if (nonterminal != mainNonterminal)
 		{
-			outputFile << nonterminal << "-";
-			std::copy(rightSide.sequence.begin(), rightSide.sequence.end(), std::ostream_iterator<Symbol>(outputFile));
-			outputFile << "/";
-			std::copy(rightSide.referencingSet.begin(), rightSide.referencingSet.end(), std::ostream_iterator<std::string>(outputFile, ","));
-			outputFile << "\n";
+			std::vector<RuleRightSide> const & rightSides = rule.second;
+			WriteRule(outputFile, nonterminal, rightSides);
 		}
 	}
 }
@@ -430,7 +474,7 @@ int main(int argc, char * argv[])
 	bool needAugment = false;
 	std::unordered_map<std::string, std::vector<RuleRightSide>> rules;
 
-	ReadRule(argv[1], mainNonterminal, needAugment, rules);
+	ReadRules(argv[1], mainNonterminal, needAugment, rules);
 
 	if (needAugment)
 	{
@@ -441,7 +485,7 @@ int main(int argc, char * argv[])
 	Factorize(rules);
 	ComputeReferencingSets(rules);
 
-	WriteRule(inputFileName + ".precompiled", rules);
+	WriteRules(inputFileName + ".precompiled", rules, mainNonterminal);
 
 	return EXIT_SUCCESS;
 }
