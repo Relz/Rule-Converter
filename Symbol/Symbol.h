@@ -21,6 +21,9 @@ public:
 	static char const NONTERMINAL_LEFT_BORDER;
 	static char const NONTERMINAL_RIGHT_BORDER;
 
+	static char const ACTION_NAME_LEFT_BORDER;
+	static char const ACTION_NAME_RIGHT_BORDER;
+
 	static void CreateTerminal(std::string const & value, Symbol & terminal);
 	static void CreateNonterminal(std::string const & value, Symbol & nonterminal);
 };

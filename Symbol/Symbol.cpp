@@ -46,6 +46,9 @@ char const Symbol::TERMINAL_RIGHT_BORDER = ']';
 char const Symbol::NONTERMINAL_LEFT_BORDER = '<';
 char const Symbol::NONTERMINAL_RIGHT_BORDER = '>';
 
+char const Symbol::ACTION_NAME_LEFT_BORDER = '{';
+char const Symbol::ACTION_NAME_RIGHT_BORDER = '}';
+
 void Symbol::CreateTerminal(std::string const & value, Symbol & terminal)
 {
 	terminal += TERMINAL_LEFT_BORDER;
