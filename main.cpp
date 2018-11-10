@@ -60,7 +60,7 @@ void ReadNonterminalSequence(
 	Input & input, std::vector<Symbol> & nonterminalSequence, std::string mainNonterminal, bool & needAugment
 )
 {
-	while (!input.IsEndOfLine())
+	while (!input.IsEndOfLine() && !input.IsEndOfStream())
 	{
 		nonterminalSequence.emplace_back(Symbol());
 		if (!TryToParseSymbol(input, Symbol::TERMINAL_LEFT_BORDER, Symbol::TERMINAL_RIGHT_BORDER, nonterminalSequence.back())
@@ -244,9 +244,23 @@ void ResolveNode(
 		node = node->nextNodes.begin()->second;
 	}
 	rightSide.sequence.emplace_back(node->symbol);
+	if (node->symbol.IsTerminal())
+	{
+		rightSide.sequence.emplace_back(node->symbol);
+	}
 	if (node->nextNodes.empty())
 	{
 		rightSide.actionNames = std::move(node->actionNames);
+		size_t tokenCount = rightSide.sequence.size();
+		if (rightSide.sequence.size() == 1 && rightSide.sequence.front() == EMPTY_CHARACTER_SYMBOL)
+		{
+			tokenCount = 0;
+		}
+		Symbol astSymbol;
+		Symbol::CreateActionName(
+			"CreateAstNode_" + nonterminal + "_Using_" + std::to_string(tokenCount), astSymbol
+		);
+		rightSide.actionNames.emplace_back(astSymbol);
 		return;
 	}
 	std::string newNonterminalName;

@@ -51,6 +51,7 @@ char const Symbol::ACTION_NAME_RIGHT_BORDER = '}';
 
 void Symbol::CreateTerminal(std::string const & value, Symbol & terminal)
 {
+	terminal.clear();
 	terminal += TERMINAL_LEFT_BORDER;
 	terminal += value;
 	terminal += TERMINAL_RIGHT_BORDER;
@@ -58,7 +59,16 @@ void Symbol::CreateTerminal(std::string const & value, Symbol & terminal)
 
 void Symbol::CreateNonterminal(std::string const & value, Symbol & nonterminal)
 {
+	nonterminal.clear();
 	nonterminal += NONTERMINAL_LEFT_BORDER;
 	nonterminal += value;
 	nonterminal += NONTERMINAL_RIGHT_BORDER;
+}
+
+void Symbol::CreateActionName(std::string const & value, Symbol & actionName)
+{
+	actionName.clear();
+	actionName += ACTION_NAME_LEFT_BORDER;
+	actionName += value;
+	actionName += ACTION_NAME_RIGHT_BORDER;
 }

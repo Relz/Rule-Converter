@@ -26,6 +26,7 @@ public:
 
 	static void CreateTerminal(std::string const & value, Symbol & terminal);
 	static void CreateNonterminal(std::string const & value, Symbol & nonterminal);
+	static void CreateActionName(std::string const & value, Symbol & actionName);
 };
 
 namespace std
