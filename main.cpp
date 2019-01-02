@@ -244,10 +244,6 @@ void ResolveNode(
 		node = node->nextNodes.begin()->second;
 	}
 	rightSide.sequence.emplace_back(node->symbol);
-	if (node->symbol.IsTerminal())
-	{
-		rightSide.sequence.emplace_back(node->symbol);
-	}
 	if (node->nextNodes.empty())
 	{
 		rightSide.actionNames = std::move(node->actionNames);
@@ -258,7 +254,7 @@ void ResolveNode(
 		}
 		Symbol astSymbol;
 		Symbol::CreateActionName(
-			"CreateAstNode_" + nonterminal + "_Using_" + std::to_string(tokenCount), astSymbol
+			"Create AST node " + nonterminal + " using " + std::to_string(tokenCount), astSymbol
 		);
 		rightSide.actionNames.emplace_back(astSymbol);
 		return;
