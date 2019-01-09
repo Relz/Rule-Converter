@@ -1,0 +1,157 @@
+Program-<StatementList>
+
+StatementList-<Statement><StatementList>
+StatementList-<e>
+
+StatementListBlock-<LeftCurlyBracket><StatementList><RightCurlyBracket>
+LeftCurlyBracket-[Left curly bracket]{Create scope}
+RightCurlyBracket-[Right curly bracket]{Destroy scope}
+
+Statement-<SemicolonedVariableDeclaration>
+Statement-<SemicolonedAssignment>
+Statement-<If>
+Statement-<For>
+Statement-<While>
+Statement-<Read>{Create LLVM read function}
+Statement-<Write>{Create LLVM write function}
+Statement-<StatementListBlock>
+
+VariableDeclaration-<VariableDeclarationA><AssignmentSign><AssignmentRightHand>{Check variable type with AssignmentRightHand type for equality}{Add variable to scope}
+VariableDeclarationA-<ExtendedType>[Identifier]{Check identifier for already existing}
+SemicolonedVariableDeclaration-<VariableDeclaration>[Semicolon]
+
+Assignment-<EnsureIdentifierIsExisting><AssignmentSign><AssignmentRightHand>{Check identifier type with AssignmentRightHand type for equality}{Update variable in scope}
+EnsureIdentifierIsExisting-<ExtendedIdentifier>{Check identifier for existing}
+SemicolonedAssignment-<Assignment>[Semicolon]
+
+ExtendedIdentifier-[Identifier]<PossibleArrayAccessing>
+
+PossibleArrayAccessing-[Left square bracket]<ExpressionList>[Right square bracket]
+PossibleArrayAccessing-<e>
+
+ExpressionList-<Expression><ExpressionListExtension>
+
+ExpressionListExtension-[Comma]<ExpressionList>
+ExpressionListExtension-<e>
+
+AssignmentRightHand-<Expression>
+
+AssignmentSign-[Assignment]
+AssignmentSign-[Plus assignment]
+AssignmentSign-[Minus assignment]
+AssignmentSign-[Multiply assignment]
+AssignmentSign-[Division assignment]
+AssignmentSign-[Integer division assignment]
+AssignmentSign-[Modulus assignment]
+
+Literal-<StringLiteral>
+Literal-<CharacterLiteral>
+Literal-<BooleanLiteral>
+Literal-<IntegerLiteral>
+Literal-<FloatLiteral>
+Literal-[Exponential]
+Literal-<ArrayLiteral>{Create LLVM array literal}
+
+StringLiteral-[String literal]{Create LLVM string literal}
+CharacterLiteral-[Character literal]{Create LLVM character literal}
+BooleanLiteral-[Boolean literal]{Create LLVM boolean literal}
+IntegerLiteral-[Integer]{Create llvm integer value}
+FloatLiteral-[Float]{Create llvm float value}
+
+PossibleLiteral-<Literal>
+PossibleLiteral-<e>
+
+PossibleLiteralList-<PossibleLiteral><PossibleLiteralListExtension>
+
+PossibleLiteralListExtension-[Comma]<PossibleLiteralList>
+PossibleLiteralListExtension-<e>
+
+ArrayLiteral-[Left square bracket]<PossibleLiteralList>[Right square bracket]
+
+If-<IfCondition><StatementTrue><Else>{Goto post if statement label}{Start block previous}
+Else-[Else keyword]<StatementFalse>
+Else-<e>
+
+IfCondition-[If keyword][Left round bracket]<Expression>[Right round bracket]{Create if statement}{Save post if statement to previous blocks}{Start block true}
+
+StatementTrue-<Statement>{Goto post if statement label}{Start block false}
+
+StatementFalse-<Statement>
+
+Expression-<ArithmeticPlus>
+ArithmeticPlus-<ArithmeticPlus>[Plus]<ArithmeticMinus>
+ArithmeticPlus-<ArithmeticMinus>
+ArithmeticMinus-<ArithmeticMinus>[Minus]<ArithmeticMultiply>
+ArithmeticMinus-<ArithmeticMultiply>
+ArithmeticMultiply-<ArithmeticMultiply>[Multiply]<ArithmeticDivision>
+ArithmeticMultiply-<ArithmeticDivision>
+ArithmeticDivision-<ArithmeticDivision>[Division]<ArithmeticIntegerDivision>
+ArithmeticDivision-<ArithmeticIntegerDivision>
+ArithmeticIntegerDivision-<ArithmeticIntegerDivision>[Integer division]<ArithmeticModule>
+ArithmeticIntegerDivision-<ArithmeticModule>
+ArithmeticModule-<ArithmeticModule>[Modulus]<LogicEquivalence>
+ArithmeticModule-<LogicEquivalence>
+LogicEquivalence-<LogicEquivalence>[Equivalence]<LogicNotEquivalence>
+LogicEquivalence-<LogicNotEquivalence>
+LogicNotEquivalence-<LogicNotEquivalence>[Not equivalence]<LogicMoreOrEquivalence>
+LogicNotEquivalence-<LogicMoreOrEquivalence>
+LogicMoreOrEquivalence-<LogicMoreOrEquivalence>[More or equal]<LogicLessOrEquivalence>
+LogicMoreOrEquivalence-<LogicLessOrEquivalence>
+LogicLessOrEquivalence-<LogicLessOrEquivalence>[Less or equal]<LogicMoreEquivalence>
+LogicLessOrEquivalence-<LogicMoreEquivalence>
+LogicMoreEquivalence-<LogicMoreEquivalence>[More]<LogicLessEquivalence>
+LogicMoreEquivalence-<LogicLessEquivalence>
+LogicLessEquivalence-<LogicLessEquivalence>[Less]<ArithmeticNegate>
+LogicLessEquivalence-<ArithmeticNegate>
+ArithmeticNegate-[Minus]<ArithmeticNegate>
+ArithmeticNegate-[Left round bracket]<Expression>[Right round bracket]
+ArithmeticNegate-<EnsureIdentifierIsExistingAndTryToLoadLlvmValueFromSymbolTable>
+ArithmeticNegate-<Literal>
+
+EnsureIdentifierIsExistingAndTryToLoadLlvmValueFromSymbolTable-<EnsureIdentifierIsExisting>{Try to load LLVM value from symbol table}
+
+EnsureIdentifierIsExistingAndTryToLoadLlvmValueFromSymbolTableOrStringLiteral-<EnsureIdentifierIsExistingAndTryToLoadLlvmValueFromSymbolTable>
+EnsureIdentifierIsExistingAndTryToLoadLlvmValueFromSymbolTableOrStringLiteral-<StringLiteral>
+
+EnsureIdentifierIsExistingAndTryToReferenceLlvmValueFromSymbolTable-<EnsureIdentifierIsExisting>{Try to reference LLVM value from symbol table}
+
+EnsureIdentifierIsExistingAndTryToReferenceLlvmValueFromSymbolTableOrStringLiteral-<EnsureIdentifierIsExistingAndTryToReferenceLlvmValueFromSymbolTable>
+EnsureIdentifierIsExistingAndTryToReferenceLlvmValueFromSymbolTableOrStringLiteral-<StringLiteral>
+
+For-[For keyword][Left round bracket]<VariableDeclaration>[Semicolon]<Expression>[Semicolon]<Assignment>[Right round bracket]<Statement>
+
+While-<WhileCondition><Statement>{Goto block pre while}{End block pre while}{Start block previous}
+
+WhileCondition-<WhileKeyword>[Left round bracket]<Expression>[Right round bracket]{Create block while}{Create while statement}{Start block while}
+
+WhileKeyword-[While keyword]{Create block pre while}{Goto block pre while}{Start block pre while}
+
+Read-[Read function][Left round bracket]<EnsureIdentifierIsExistingAndTryToLoadLlvmValueFromSymbolTableOrStringLiteral><ReadExtra>[Right round bracket][Semicolon]
+
+ReadExtra-[Comma]<ReferencedIdentifierList>
+ReadExtra-<e>
+
+ReferencedIdentifierList-<EnsureIdentifierIsExistingAndTryToReferenceLlvmValueFromSymbolTableOrStringLiteral><ReferencedIdentifierListExtension>
+
+ReferencedIdentifierListExtension-[Comma]<ReferencedIdentifierList>
+ReferencedIdentifierListExtension-<e>
+
+Write-[Write function][Left round bracket]<EnsureIdentifierIsExistingAndTryToLoadLlvmValueFromSymbolTableOrStringLiteral><WriteExtra>[Right round bracket][Semicolon]
+
+WriteExtra-[Comma]<ValuedIdentifierList>
+WriteExtra-<e>
+
+ValuedIdentifierList-<EnsureIdentifierIsExistingAndTryToLoadLlvmValueFromSymbolTable><ValuedIdentifierListExtension>
+
+ValuedIdentifierListExtension-[Comma]<ValuedIdentifierList>
+ValuedIdentifierListExtension-<e>
+
+ExtendedType-[Type]<PossibleArray>
+
+PossibleArray-[Left square bracket]<IntegerList>[Right square bracket]
+PossibleArray-<e>
+
+IntegerList-[Integer]<IntegerListExtension>
+
+IntegerListExtension-[Comma]<IntegerList>
+IntegerListExtension-<e>
